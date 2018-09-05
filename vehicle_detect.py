@@ -155,7 +155,7 @@ if video_mode:
 
 		return np.hstack((draw_img, hmap.map))
 
-	test_clip = VideoFileClip(video_name + ".mp4").subclip(15,17)
+	test_clip = VideoFileClip(video_name + ".mp4").subclip(3,17)
 	output_vid = test_clip.fl_image(video_image)
 	output_vid.write_videofile(video_name + "_output.mp4")
 
