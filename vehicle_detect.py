@@ -18,6 +18,8 @@ import glob
 
 from vehicle_features import *
 
+from heat_map import *
+
 import pickle
 
 train_mode = False
@@ -27,25 +29,33 @@ photo_mode = False
 clf = None
 X_scaler = None
 
-model_name = "model_v0.4"
+model_name = "model_v0.6"
 video_name = "project_video"
 
 if train_mode:
 	vehicle_files = glob.glob('../data/P5/vehicles/vehicles/KITTI_extracted/*.png', recursive=True)
+	vehicle_time_series_files = glob.glob('../data/P5/vehicles/vehicles/GTI_*/*.png', recursive=True)
+	
 	nonvehicle_files = glob.glob('../data/P5/non-vehicles/non-vehicles/Extras/*.png', recursive=True)
+	nonvehicle_time_series_files = glob.glob('../data/P5/non-vehicles/non-vehicles/GTI/*.png', recursive=True)
 
-	vehicle_files = vehicle_files[::1]
-	nonvehicle_files = nonvehicle_files[::1]
+	vehicle_files = vehicle_files + vehicle_time_series_files
+	nonvehicle_files = nonvehicle_files + nonvehicle_time_series_files
 
 	print('number of vehicle files is ', len(vehicle_files))
 	print('number of non-vehicle files is ', len(nonvehicle_files))
 
-	print("loading features from disk...")
+	print("loading vehicle features from disk...")
 
-	features_vehicles = extract_features(vehicle_files, cspace="HLS", hog_channel=2)
-	features_nonvehicles = extract_features(nonvehicle_files, cspace="HLS", hog_channel=2)
+	features_vehicles = extract_features(vehicle_files, cspace="HLS", hog_channel="ALL")
 
-	print("finished loading features from disk")
+	print("finished loading vehicle features from disk")
+
+	print("loading non-vehicle features from disk...")
+
+	features_nonvehicles = extract_features(nonvehicle_files, cspace="HLS", hog_channel="ALL")
+
+	print("finished loading non-vehicle features from disk")
 
 	X = np.vstack((features_vehicles, features_nonvehicles)).astype(np.float64)
 
@@ -65,41 +75,48 @@ if train_mode:
 	X_train = X_scaler.transform(X_train)
 	X_test = X_scaler.transform(X_test)
 
+	# print("finding optimal decision tree...")
+
+	# clf_tree = tree.DecisionTreeClassifier()
+
+	# clf_tree.fit(X_train, y_train)
+
+	# print("found optimal decision tree")
+
 	print("finding optimal support vector machine...")
 
 	parameters = {'kernel':('linear', 'rbf'), 'C':[1, 10]}
 
 	# svr = svm.LinearSVC()
 	# svr = 
-	clf = svm.SVC(kernel='linear', C=1e-3) #GridSearchCV(svr, parameters)
+	clf = svm.SVC(kernel='linear', C=1e-3, verbose=2) #GridSearchCV(svr, parameters)
 
 	clf.fit(X_train, y_train)
-
+	
 	print("found optimal support vector machine")
+
+
 
 	print("predicting on test and train set...")
 
 	y_pred_test = clf.predict(X_test)
 	y_pred_train = clf.predict(X_train)
 
+	# y_pred_test_tree = clf_tree.predict(X_test)
+	# y_pred_train_tree = clf_tree.predict(X_train)
+
 	print("finished predicting on test set")
 
-	acc_test = accuracy_score(y_test, y_pred_test)
-	acc_train = accuracy_score(y_train, y_pred_train)
+	acc = \
+	{
+		'train_svm: ': accuracy_score(y_train, y_pred_train),
+		'test_svm: ': accuracy_score(y_test, y_pred_test),
+		
+		# 'train_tree: ': accuracy_score(y_train, y_pred_train_tree),
+		# 'test_tree: ': accuracy_score(y_test, y_pred_test_tree)
+	}
 
-	print("accuracy (test): ", acc_test)
-	print("accuracy (train): ", acc_train)
-
-	print("first 10 predictions")
-
-	first_pred = clf.predict(X_test[-9:])
-
-	print("labels (pred):\n", first_pred)
-
-	print("labels (test):\n", y_test[-9:])
-
-	s = pickle.dumps(clf)
-
+	print("accuracies:\n", acc)
 	
 
 	with open(model_name, 'wb') as output:
@@ -118,31 +135,47 @@ if video_mode:
 			clf = pickle.load(ip_file)
 		with open(model_name + "_normalizer", 'rb') as ip_file:
 			X_scaler = pickle.load(ip_file)
-		
+
+	hmap = HeatMap((720, 1280, 3))
+
 	def video_image(img):
-		bboxes, allboxes = detect_objects_multi_scale(img, clf, X_scaler, min_size=(100,100), max_size=(201,201), step_size=(100,100))
+		bboxes, allboxes = detect_objects_multi_scale(img, clf, X_scaler, min_size=(150,150), max_size=(201,201), step_size=(100,100))
 
+		# bboxes2, allboxes2 = detect_objects_multi_scale(img, clf_tree, X_scaler, min_size=(100,100), max_size=(201,201), step_size=(100,100))
 		draw_img = draw_bboxes(img, bboxes, allboxes)
+		
 
-		return draw_img
+		hmap.add_boxes(bboxes)
 
-	test_clip = VideoFileClip(video_name + ".mp4")
+		# cv2.imshow("heatmap", hmap.map)
+
+		# cv2.waitKey(100)
+
+		# draw_img = draw_bboxes(img, bboxes2, allboxes2)
+
+		return np.hstack((draw_img, hmap.map))
+
+	test_clip = VideoFileClip(video_name + ".mp4").subclip(15,17)
 	output_vid = test_clip.fl_image(video_image)
 	output_vid.write_videofile(video_name + "_output.mp4")
 
 if photo_mode:
 
-	photo = mpimg.imread("../data/P5//")
+	files = glob.glob('test_images/*.jpg')
 
 	if not(train_mode):
 		with open(model_name, 'rb') as ip_file:
 			clf = pickle.load(ip_file)
 		with open(model_name + "_normalizer", 'rb') as ip_file:
 			X_scaler = pickle.load(ip_file)
-	
-	bboxes, allboxes = detect_objects_multi_scale(img, clf, X_scaler, min_size=(100,100), max_size=(201,201), step_size=(100,100))
 
-	out_img = draw_boxes(img, bboxes, allboxes)
+	for file in files:
+		img = mpimg.imread(file)
+		bboxes, allboxes = detect_objects_multi_scale(img, clf, X_scaler, min_size=(150,150), max_size=(201,201), step_size=(100,100))
+		draw_img = draw_bboxes(img, bboxes, allboxes)
 
+		cv2.imshow("detections", cv2.cvtColor(draw_img, cv2.COLOR_BGR2RGB))
+
+		cv2.waitKey(0)
 
 	

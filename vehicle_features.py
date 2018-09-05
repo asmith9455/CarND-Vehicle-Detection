@@ -25,6 +25,7 @@ def get_hog_features(img, orient, pix_per_cell, cell_per_block, vis=False, featu
                        block_norm= 'L2-Hys',
                        transform_sqrt=True, 
                        visualize=vis, feature_vector=feature_vec)
+
         return features
 
 def extract_features_img(image, cspace='RGB', orient=9, 
@@ -54,8 +55,17 @@ def extract_features_img(image, cspace='RGB', orient=9,
     else:
         hog_features = get_hog_features(feature_image[:,:,hog_channel], orient, 
                     pix_per_cell, cell_per_block, vis=False, feature_vec=True)
+    
+    # extract colour information
+
+    histo0, bin_ranges0 = np.histogram(feature_image[:,:,0], bins=8, density=True)
+    histo1, bin_ranges1 = np.histogram(feature_image[:,:,1], bins=8, density=True)
+    histo2, bin_ranges2 = np.histogram(feature_image[:,:,2], bins=8, density=True)
+    
+
+
     # Append the new feature vector to the features list
-    return hog_features
+    return np.concatenate((histo0, histo1, histo2, hog_features))
 
 def extract_features_imgs(images, cspace='RGB', orient=9, 
                         pix_per_cell=16, cell_per_block=2, hog_channel=0):
@@ -81,9 +91,13 @@ def extract_features(img_filepaths, cspace='RGB', orient=9, pix_per_cell=16, cel
     for file in img_filepaths:
         # Read in each one by one
         image = mpimg.imread(file)
-        hog_features = extract_features_img(image, cspace=cspace, orient=orient, pix_per_cell=pix_per_cell, cell_per_block=cell_per_block, hog_channel=hog_channel)
-        # TODO: perform data augmentation here
-        features.append(hog_features)
+        img_features = extract_features_img(image, cspace=cspace, orient=orient, pix_per_cell=pix_per_cell, cell_per_block=cell_per_block, hog_channel=hog_channel)
+
+        #perform horizontal flip of image - should have the same class
+        #img_features2 = extract_features_img(image[:,::-1,:], cspace=cspace, orient=orient, pix_per_cell=pix_per_cell, cell_per_block=cell_per_block, hog_channel=hog_channel)
+        
+        features.append(img_features)
+        #features.append(img_features2)
     # Return list of feature vectors
     return np.array(features)
 
@@ -125,7 +139,7 @@ def detect_objects(image, clf, feature_scaler, win_shape=(150,150), scan_shape=(
             imgs.append(tile)
             bboxes.append((bbox_pt1, bbox_pt2))
 
-    features = extract_features_imgs(imgs, cspace="HLS", hog_channel=2)
+    features = extract_features_imgs(imgs, cspace="HLS", hog_channel="ALL")
 
     features = feature_scaler.transform(features)
 
