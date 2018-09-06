@@ -102,42 +102,50 @@ def extract_features(img_filepaths, cspace='RGB', orient=9, pix_per_cell=16, cel
     return np.array(features)
 
 
-def detect_objects(image, clf, feature_scaler, win_shape=(150,150), scan_shape=(150,150)):
+def detect_objects(image, clf, feature_scaler, windows):
 
     #args *_shape is (rows, columns) aka (height, width)
-
-    first_row = image.shape[0] // 2
-
-    window_width = win_shape[1]     #columns
-    window_height = win_shape[0]    #rows
-
-    scan_width = scan_shape[1]
-    scan_height = scan_shape[0]
 
     imgs = []
     bboxes = []
 
-    for start_row in range(first_row, image.shape[0], scan_height):
-        end_row = start_row + window_height
-        
-        if (end_row > image.shape[0] + 1):
-            continue
+    for window in windows:
 
-        for start_col in range(0, image.shape[1], scan_width):
+        first_row = int(float(image.shape[0]) * window[4])
+        first_col = int(float(image.shape[1]) * window[6])
 
-            end_col = start_col + window_width
-        
-            if (end_col > image.shape[1] + 1):
+        last_row = int(float(image.shape[0]) * window[5])
+        last_col = int(float(image.shape[1]) * window[7])
+
+        window_width = window[1]     #columns
+        window_height = window[0]    #rows
+
+        scan_width = window[3]
+        scan_height = window[2]
+
+
+
+        for start_row in range(first_row, last_row, scan_height):
+            end_row = start_row + window_height
+            
+            if (end_row > image.shape[0] + 1):
                 continue
 
-            tile = image[start_row:end_row, start_col:end_col, :]
-            # resize tile to 64 by 64
-            tile = cv2.resize(tile, (64,64))
+            for start_col in range(first_col, last_col, scan_width):
 
-            bbox_pt1 = (start_col, start_row) #col, row
-            bbox_pt2 = (end_col, end_row)
-            imgs.append(tile)
-            bboxes.append((bbox_pt1, bbox_pt2))
+                end_col = start_col + window_width
+            
+                if (end_col > image.shape[1] + 1):
+                    continue
+
+                tile = image[start_row:end_row, start_col:end_col, :]
+                # resize tile to 64 by 64
+                tile = cv2.resize(tile, (64,64))
+
+                bbox_pt1 = (start_col, start_row) #col, row
+                bbox_pt2 = (end_col, end_row)
+                imgs.append(tile)
+                bboxes.append((bbox_pt1, bbox_pt2))
 
     features = extract_features_imgs(imgs, cspace="HLS", hog_channel="ALL")
 

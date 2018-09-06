@@ -23,14 +23,31 @@ from heat_map import *
 import pickle
 
 train_mode = False
-video_mode = True
-photo_mode = False
+video_mode = False
+photo_mode = True
 
 clf = None
 X_scaler = None
 
 model_name = "model_v0.6"
 video_name = "project_video"
+
+# height (rows), width (cols), 
+# scan_height (rows), scan_width (cols), 
+# first_row, last_row, 
+# first_col, last_col
+windows = \
+[
+	# (	256, 256, 
+	# 	16, 16, 
+	# 	0.5, 0.75, 
+	# 	0.0, 1.0),
+
+	(128, 128, 8, 8, 0.5, 0.75, 0.0, 1.0), #VERY GOOD ARRANGEMENT
+	# (128, 128, 32, 32, 0.5, 0.75, 0.0, 1.0),
+	# (64, 64, 4, 4, 0.5, 0.75, 0.0, 1.0),
+	# (96, 96, 48, 24, 0.5, 0.6, 0.0, 1.0)
+]
 
 if train_mode:
 	vehicle_files = glob.glob('../data/P5/vehicles/vehicles/KITTI_extracted/*.png', recursive=True)
@@ -139,7 +156,7 @@ if video_mode:
 	hmap = HeatMap((720, 1280, 3))
 
 	def video_image(img):
-		bboxes, allboxes = detect_objects_multi_scale(img, clf, X_scaler, min_size=(150,150), max_size=(201,201), step_size=(100,100))
+		bboxes, allboxes = detect_objects(img, clf, X_scaler, windows)
 
 		# bboxes2, allboxes2 = detect_objects_multi_scale(img, clf_tree, X_scaler, min_size=(100,100), max_size=(201,201), step_size=(100,100))
 		draw_img = draw_bboxes(img, bboxes, allboxes)
@@ -155,7 +172,7 @@ if video_mode:
 
 		return np.hstack((draw_img, hmap.map))
 
-	test_clip = VideoFileClip(video_name + ".mp4").subclip(3,17)
+	test_clip = VideoFileClip(video_name + ".mp4").subclip(15,17)
 	output_vid = test_clip.fl_image(video_image)
 	output_vid.write_videofile(video_name + "_output.mp4")
 
@@ -171,7 +188,10 @@ if photo_mode:
 
 	for file in files:
 		img = mpimg.imread(file)
-		bboxes, allboxes = detect_objects_multi_scale(img, clf, X_scaler, min_size=(150,150), max_size=(201,201), step_size=(100,100))
+
+		
+
+		bboxes, allboxes = detect_objects(img, clf, X_scaler, windows)
 		draw_img = draw_bboxes(img, bboxes, allboxes)
 
 		cv2.imshow("detections", cv2.cvtColor(draw_img, cv2.COLOR_BGR2RGB))
