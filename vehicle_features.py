@@ -123,15 +123,22 @@ def detect_objects(image, clf, feature_scaler, windows):
         scan_width = window[3]
         scan_height = window[2]
 
+        keep_prob = window[8]
 
+        #todo: enable denser sampling around a list of input locations (tracked objects)
 
         for start_row in range(first_row, last_row, scan_height):
             end_row = start_row + window_height
+
+
             
             if (end_row > image.shape[0] + 1):
                 continue
 
             for start_col in range(first_col, last_col, scan_width):
+
+                if np.random.uniform() > keep_prob:
+                    continue
 
                 end_col = start_col + window_width
             

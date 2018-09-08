@@ -23,8 +23,8 @@ from heat_map import *
 import pickle
 
 train_mode = False
-video_mode = False
-photo_mode = True
+video_mode = True
+photo_mode = False
 
 clf = None
 X_scaler = None
@@ -36,6 +36,7 @@ video_name = "project_video"
 # scan_height (rows), scan_width (cols), 
 # first_row, last_row, 
 # first_col, last_col
+# keep_prob
 windows = \
 [
 	# (	256, 256, 
@@ -43,9 +44,10 @@ windows = \
 	# 	0.5, 0.75, 
 	# 	0.0, 1.0),
 
-	(128, 128, 8, 8, 0.5, 0.75, 0.0, 1.0), #VERY GOOD ARRANGEMENT
+	(128, 128, 16, 16, 0.5, 0.65, 0.7, 1.0, 0.3), #VERY GOOD ARRANGEMENT
 	# (128, 128, 32, 32, 0.5, 0.75, 0.0, 1.0),
-	# (64, 64, 4, 4, 0.5, 0.75, 0.0, 1.0),
+	(64, 64, 16, 16, 0.51, 0.65, 0.7, 1.0, 0.3),
+	# (32, 32, 16, 16, 0.52, 0.65, 0.7, 1.0, 0.3),
 	# (96, 96, 48, 24, 0.5, 0.6, 0.0, 1.0)
 ]
 
@@ -164,15 +166,39 @@ if video_mode:
 
 		hmap.add_boxes(bboxes)
 
+		bin_map = np.zeros(hmap.shape, dtype=np.uint8)
+		bin_map[hmap.map[:,:,0] > 50] = np.array([255,0,0])
+
 		# cv2.imshow("heatmap", hmap.map)
 
 		# cv2.waitKey(100)
 
 		# draw_img = draw_bboxes(img, bboxes2, allboxes2)
 
-		return np.hstack((draw_img, hmap.map))
+		draw_img = cv2.addWeighted(draw_img, 1.0, bin_map, 0.5, 0.0)
 
-	test_clip = VideoFileClip(video_name + ".mp4").subclip(15,17)
+		# find contours
+
+		bin_img_for_contours = bin_map[:,:,0]
+
+		mod_img, contours, hierarchy = cv2.findContours(bin_img_for_contours.copy(), 1, 2)
+
+		draw_img_2 = img.copy()
+
+		for c in contours:
+			x, y, w, h = cv2.boundingRect(c)
+			cv2.rectangle(draw_img,(x,y),(x+w,y+h),(0,0,255),2)
+			cv2.rectangle(draw_img_2,(x,y),(x+w,y+h),(0,0,255),2)
+
+		draw_img_resize = cv2.resize(draw_img, (0,0), fx=0.5, fy=0.5)
+
+		hmap_resize = cv2.resize(hmap.map.astype(np.uint8), (0,0), fx=0.5, fy=0.5)
+
+		bottom = np.hstack((draw_img_resize, hmap_resize))
+
+		return np.vstack((draw_img_2, bottom))
+
+	test_clip = VideoFileClip(video_name + ".mp4")
 	output_vid = test_clip.fl_image(video_image)
 	output_vid.write_videofile(video_name + "_output.mp4")
 
@@ -188,8 +214,6 @@ if photo_mode:
 
 	for file in files:
 		img = mpimg.imread(file)
-
-		
 
 		bboxes, allboxes = detect_objects(img, clf, X_scaler, windows)
 		draw_img = draw_bboxes(img, bboxes, allboxes)
