@@ -170,7 +170,7 @@ if video_mode:
 
 		hmap.add_boxes(bboxes)
 
-		hmap_thresh = 800 #was 200
+		hmap_thresh = 600
 
 		bin_map = np.zeros(hmap.shape, dtype=np.uint8)
 		bin_map[hmap.map[:,:,0] > hmap_thresh] = np.array([255,0,0])
@@ -191,7 +191,7 @@ if video_mode:
 
 		draw_img_2 = img.copy()
 
-		area_thresh = 400  #area theshold in pixels squared - to reduce false positives
+		area_thresh = 600  #area theshold in pixels squared - to reduce false positives
 
 		for c in contours:
 			x, y, w, h = cv2.boundingRect(c)
