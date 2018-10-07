@@ -44,11 +44,11 @@ windows = \
 	# 	0.5, 0.75, 
 	# 	0.0, 1.0),
 
-	(128, 128, 16, 16, 0.5, 0.7, 0.4, 1.0, 1.0), #VERY GOOD ARRANGEMENT
+	(128, 128, 16, 16, 0.5, 0.7, 0.5, 1.0, 1.0), #VERY GOOD ARRANGEMENT
 	# (128, 128, 32, 32, 0.5, 0.75, 0.0, 1.0),
-	(64, 64, 16, 16, 0.5, 0.7, 0.4, 1.0, 1.0),
-	(32, 32, 16, 16, 0.52, 0.65, 0.7, 1.0, 1.0),
-	(96, 96, 48, 24, 0.5, 0.6, 0.0, 1.0, 1.0)
+	# (64, 64, 16, 16, 0.5, 0.7, 0.5, 1.0, 1.0),
+	# (32, 32, 16, 16, 0.52, 0.65, 0.7, 1.0, 1.0),
+	(96, 96, 48, 24, 0.5, 0.6, 0.5, 1.0, 1.0)
 ]
 
 if train_mode:
@@ -166,8 +166,10 @@ if video_mode:
 
 		hmap.add_boxes(bboxes)
 
+		hmap_thresh = 250
+
 		bin_map = np.zeros(hmap.shape, dtype=np.uint8)
-		bin_map[hmap.map[:,:,0] > 150] = np.array([255,0,0])
+		bin_map[hmap.map[:,:,0] > hmap_thresh] = np.array([255,0,0])
 
 		# cv2.imshow("heatmap", hmap.map)
 
@@ -192,13 +194,13 @@ if video_mode:
 
 		draw_img_resize = cv2.resize(draw_img, (0,0), fx=0.5, fy=0.5)
 
-		hmap_resize = cv2.resize(hmap.map.astype(np.uint8), (0,0), fx=0.5, fy=0.5)
+		hmap_resize = cv2.resize((hmap.map * 255 / np.max(hmap.map)).astype(np.uint8), (0,0), fx=0.5, fy=0.5)
 
 		bottom = np.hstack((draw_img_resize, hmap_resize))
 
 		return np.vstack((draw_img_2, bottom))
 
-	test_clip = VideoFileClip(video_name + ".mp4")
+	test_clip = VideoFileClip(video_name + ".mp4").subclip(5,20)
 	output_vid = test_clip.fl_image(video_image)
 	output_vid.write_videofile(video_name + "_output.mp4")
 
