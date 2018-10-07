@@ -44,11 +44,11 @@ windows = \
 	# 	0.5, 0.75, 
 	# 	0.0, 1.0),
 
-	(128, 128, 64, 64, 0.5, 0.7, 0.5, 1.0, 1.0), #VERY GOOD ARRANGEMENT
+	(128, 128, 64, 64, 0.65, 0.9, 0.5, 1.0, 1.0),
 	(64, 64, 32, 32, 0.5, 0.7, 0.5, 1.0, 1.0),
 	(96, 96, 48, 48, 0.5, 0.7, 0.5, 1.0, 1.0),
 
-	(128, 128, 64, 64, 0.5, 0.7, 0.5, 1.0, 1.0), #VERY GOOD ARRANGEMENT
+	(128, 128, 64, 64, 0.65, 0.9, 0.5, 1.0, 1.0),
 	(64, 64, 32, 32, 0.5, 0.7, 0.5, 1.0, 1.0),
 	(96, 96, 48, 48, 0.5, 0.7, 0.5, 1.0, 1.0)
 	# (128, 128, 32, 32, 0.5, 0.75, 0.0, 1.0),
@@ -170,7 +170,7 @@ if video_mode:
 
 		hmap.add_boxes(bboxes)
 
-		hmap_thresh = 600
+		hmap_thresh = 400
 
 		bin_map = np.zeros(hmap.shape, dtype=np.uint8)
 		bin_map[hmap.map[:,:,0] > hmap_thresh] = np.array([255,0,0])
@@ -210,7 +210,7 @@ if video_mode:
 
 		return np.vstack((draw_img_2, bottom))
 
-	test_clip = VideoFileClip(video_name + ".mp4").subclip(5,40)
+	test_clip = VideoFileClip(video_name + ".mp4")
 	output_vid = test_clip.fl_image(video_image)
 	output_vid.write_videofile(video_name + "_output.mp4")
 
