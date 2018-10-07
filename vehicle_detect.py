@@ -44,11 +44,15 @@ windows = \
 	# 	0.5, 0.75, 
 	# 	0.0, 1.0),
 
-	(128, 128, 16, 16, 0.5, 0.7, 0.5, 1.0, 1.0), #VERY GOOD ARRANGEMENT
+	(128, 128, 64, 64, 0.5, 0.7, 0.5, 1.0, 1.0), #VERY GOOD ARRANGEMENT
+	(64, 64, 32, 32, 0.5, 0.7, 0.5, 1.0, 1.0),
+	(96, 96, 48, 48, 0.5, 0.7, 0.5, 1.0, 1.0),
+
+	(128, 128, 64, 64, 0.5, 0.7, 0.5, 1.0, 1.0), #VERY GOOD ARRANGEMENT
+	(64, 64, 32, 32, 0.5, 0.7, 0.5, 1.0, 1.0),
+	(96, 96, 48, 48, 0.5, 0.7, 0.5, 1.0, 1.0)
 	# (128, 128, 32, 32, 0.5, 0.75, 0.0, 1.0),
-	# (64, 64, 16, 16, 0.5, 0.7, 0.5, 1.0, 1.0),
 	# (32, 32, 16, 16, 0.52, 0.65, 0.7, 1.0, 1.0),
-	(96, 96, 48, 24, 0.5, 0.6, 0.5, 1.0, 1.0)
 ]
 
 if train_mode:
@@ -200,7 +204,7 @@ if video_mode:
 
 		return np.vstack((draw_img_2, bottom))
 
-	test_clip = VideoFileClip(video_name + ".mp4").subclip(5,20)
+	test_clip = VideoFileClip(video_name + ".mp4") #.subclip(8,11)
 	output_vid = test_clip.fl_image(video_image)
 	output_vid.write_videofile(video_name + "_output.mp4")
 
