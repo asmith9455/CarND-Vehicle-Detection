@@ -170,7 +170,7 @@ if video_mode:
 
 		hmap.add_boxes(bboxes)
 
-		hmap_thresh = 200
+		hmap_thresh = 800 #was 200
 
 		bin_map = np.zeros(hmap.shape, dtype=np.uint8)
 		bin_map[hmap.map[:,:,0] > hmap_thresh] = np.array([255,0,0])
@@ -191,8 +191,14 @@ if video_mode:
 
 		draw_img_2 = img.copy()
 
+		area_thresh = 400  #area theshold in pixels squared - to reduce false positives
+
 		for c in contours:
 			x, y, w, h = cv2.boundingRect(c)
+
+			if (w * h < area_thresh):
+				continue
+
 			cv2.rectangle(draw_img,(x,y),(x+w,y+h),(0,0,255),2)
 			cv2.rectangle(draw_img_2,(x,y),(x+w,y+h),(0,0,255),2)
 
@@ -204,7 +210,7 @@ if video_mode:
 
 		return np.vstack((draw_img_2, bottom))
 
-	test_clip = VideoFileClip(video_name + ".mp4") #.subclip(8,11)
+	test_clip = VideoFileClip(video_name + ".mp4").subclip(5,40)
 	output_vid = test_clip.fl_image(video_image)
 	output_vid.write_videofile(video_name + "_output.mp4")
 
