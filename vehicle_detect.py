@@ -170,7 +170,7 @@ if video_mode:
 
 		hmap.add_boxes(bboxes)
 
-		hmap_thresh = 250
+		hmap_thresh = 200
 
 		bin_map = np.zeros(hmap.shape, dtype=np.uint8)
 		bin_map[hmap.map[:,:,0] > hmap_thresh] = np.array([255,0,0])
