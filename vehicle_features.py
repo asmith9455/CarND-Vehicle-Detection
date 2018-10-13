@@ -8,6 +8,7 @@ import cv2
 
 
 def get_hog_features(img, orient, pix_per_cell, cell_per_block, vis=False, feature_vec=True):
+    # this function is based on the one from the lesson
     # Call with two outputs if vis==True
     if vis == True:
         features, hog_image = hog(img, orientations=orient, 
@@ -30,7 +31,7 @@ def get_hog_features(img, orient, pix_per_cell, cell_per_block, vis=False, featu
 
 def extract_features_img(image, cspace='RGB', orient=9, 
                         pix_per_cell=16, cell_per_block=2, hog_channel=0):
-    # apply color conversion if other than 'RGB'
+    # apply color conversion if the specified colour space is not 'RGB'
     if cspace == 'HSV':
         feature_image = cv2.cvtColor(image, cv2.COLOR_RGB2HSV)
     elif cspace == 'LUV':
@@ -103,14 +104,15 @@ def extract_features(img_filepaths, cspace='RGB', orient=9, pix_per_cell=16, cel
 
 
 def detect_objects(image, clf, feature_scaler, windows):
-
-    #args *_shape is (rows, columns) aka (height, width)
+    # This function attempts to detect vehicles in the images at all sliding windows provided in argument 'windows'
 
     imgs = []
     bboxes = []
 
+    # iterate through all sliding windows specified by the caller
     for window in windows:
 
+        # store some convenient information in easy to read variables
         first_row = int(float(image.shape[0]) * window[4])
         first_col = int(float(image.shape[1]) * window[6])
 
@@ -125,8 +127,7 @@ def detect_objects(image, clf, feature_scaler, windows):
 
         keep_prob = window[8]
 
-        #todo: enable denser sampling around a list of input locations (tracked objects)
-
+        # 'slide' the windows through the image, appending any detections to the appropriate lists
         for start_row in range(first_row, last_row, scan_height):
             
             # enable random fluxuations in the position of the scan boxes 
@@ -159,49 +160,54 @@ def detect_objects(image, clf, feature_scaler, windows):
                 imgs.append(tile)
                 bboxes.append((bbox_pt1, bbox_pt2))
 
+    # extract the features from the supplied images
     features = extract_features_imgs(imgs, cspace="HLS", hog_channel="ALL")
 
+    # transform the features based on the normalizer generated from the training data
     features = feature_scaler.transform(features)
 
+    # actually perform the prediction (in this case teh output is binary)
     pred = clf.predict(features)
 
     pred = np.array(pred)
     all_boxes = np.array(bboxes)
 
+    # choose only the boxes that had prediction value set to 1, and return them as the 'detected_boxes'
     detected_boxes = all_boxes[(pred == 1)]
 
     print('len single scale all boxes: ', len(all_boxes))
 
     return detected_boxes, all_boxes
 
-def detect_objects_multi_scale(image, clf, feature_scaler, min_size, max_size, step_size):
-    #expect min_size, max_size, step_size to each be a 2-tuples (height, width) aka (rows,cols)
-    widths = range(min_size[1], max_size[1], step_size[1])
-    heights = range(min_size[0], max_size[0], step_size[0])
-    L = min(len(widths), len(heights))
+# def detect_objects_multi_scale(image, clf, feature_scaler, min_size, max_size, step_size):
+#     #expect min_size, max_size, step_size to each be a 2-tuples (height, width) aka (rows,cols)
+#     widths = range(min_size[1], max_size[1], step_size[1])
+#     heights = range(min_size[0], max_size[0], step_size[0])
+#     L = min(len(widths), len(heights))
 
-    widths = widths[0:L]
-    heights = widths[0:L]
+#     widths = widths[0:L]
+#     heights = widths[0:L]
 
-    detected_boxes = np.array([[[0,0], [0,0]]])
-    all_boxes = np.array([ [[0,0], [0,0]] ])
+#     detected_boxes = np.array([[[0,0], [0,0]]])
+#     all_boxes = np.array([ [[0,0], [0,0]] ])
 
-    for width, height in zip(widths, heights):
-        dboxes, aboxes = detect_objects(image, clf, feature_scaler, win_shape=(height, width), scan_shape=(height//7, width//7))
+#     for width, height in zip(widths, heights):
+#         dboxes, aboxes = detect_objects(image, clf, feature_scaler, win_shape=(height, width), scan_shape=(height//7, width//7))
 
-        detected_boxes = np.concatenate((detected_boxes, dboxes))
-        all_boxes = np.concatenate((all_boxes, aboxes))
+#         detected_boxes = np.concatenate((detected_boxes, dboxes))
+#         all_boxes = np.concatenate((all_boxes, aboxes))
     
-    detected_boxes = np.delete(detected_boxes, 0, 0)
-    all_boxes = np.delete(all_boxes, 0, 0)
+#     detected_boxes = np.delete(detected_boxes, 0, 0)
+#     all_boxes = np.delete(all_boxes, 0, 0)
 
-    print("number of scanned windows: ", len(all_boxes))
-    print("detected boxes count: ", len(detected_boxes))
+#     print("number of scanned windows: ", len(all_boxes))
+#     print("detected boxes count: ", len(detected_boxes))
 
-    return detected_boxes, all_boxes
+#     return detected_boxes, all_boxes
 
 
 def draw_bboxes(img, vehicle_boxes, all_boxes):
+    # this is a helper function for drawing rectangles in pixel coordinates representing vehicle detections on the image
     draw_img = img.copy()
     print('drawing ', all_boxes.shape[0], ' scanning boxes')
     print('drawing ', vehicle_boxes.shape[0], ' vehicle detections')
