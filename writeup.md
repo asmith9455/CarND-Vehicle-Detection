@@ -63,22 +63,66 @@ I spent a large amount of time manually adjusting and testing the HOG parameters
 
 #### 3. Describe how (and identify where in your code) you trained a classifier using your selected HOG features (and color features if you used them).
 
-I trained a linear SVM using...
+I trained a linear SVM using a features vector composed of both HOG information (as described in the previous section) and colour histograms. See lines 62 to 64 in vehicle_features.py function `extract_features_img` for code that calculated the colour histograms for each input image.
+
+SVM training itself happens in `vehicle_detect.py`, on lines 67 through 167. This training process uses all images from the KITTI and GTI data sets (conveniently provided by the udacity course in a 2 zip files - one for vehicles, one for non-vehicles.
 
 ### Sliding Window Search
 
 #### 1. Describe how (and identify where in your code) you implemented a sliding window search.  How did you decide what scales to search and how much to overlap windows?
 
-I decided to search random window positions at random scales all over the image and came up with this (ok just kidding I didn't actually ;):
+I formulated my sliding window strategy through experimentation. The final set of sliding windows that I used was:
 
-![alt text][image3]
+```code
+windows = \
+[
+	(128, 128, 64, 64, 0.65, 0.9, 0.5, 1.0, 1.0),
+	(64, 64, 32, 32, 0.55, 0.7, 0.5, 1.0, 1.0),
+	(96, 96, 48, 48, 0.55, 0.7, 0.5, 1.0, 1.0),
+
+	(128, 128, 64, 64, 0.65, 0.9, 0.5, 1.0, 1.0),
+	(128, 128, 48, 48, 0.7, 1.0, 0.5, 1.0, 1.0),
+	(64, 64, 32, 32, 0.55, 0.7, 0.5, 1.0, 0.5),
+	
+	(96, 96, 48, 48, 0.55, 0.7, 0.5, 1.0, 1.0),
+
+	(96, 96, 36, 36, 0.54, 0.7, 0.5, 1.0, 1.0),
+
+	(96, 96, 24, 24, 0.55, 0.7, 0.5, 1.0, 1.0)
+]
+```
+
+Each of these represents a different sliding window. The parameters from left to right are:
+1. height (rows) - the height of the sliding window, in pixels
+2. width (cols) - the width of the sliding window, in pixels
+3. scan_height (rows) - the translation height of the sliding window, in pixels
+4. scan_width (cols) - the translation width of the sliding window, in pixels
+5. first_row - the row of the image to start on, expressed as a fraction of the number of rows in the image
+6. last_row - the last row of the image to process, expressed as a fraction of the number of rows in the image
+7. first_col - the column of the image to start on, expressed as a fraction of the number of columns in the image
+8. last_col - the last column of the image to process, expressed as a fraction of the number of columns in the image
+9. keep_prob - the probility for processing a window. Ex, 0.6 means there is a 60% chance that the window will be processed. The point of this option was to enable speed improvements by relying on the framerate of the camera to fill in missing information over time, since not all of the sliding window positions would be predicted in each frame (but over time one could expect uniform coverage of the search area).
+
+In addition, the sliding window search implementation slides the windows back and forth by up to half the translation dimensions for each frame. The intention with this modification was to enable smoother tracking without a performance impact by again exploiting the fact that the camera frame rate is quite high (and so we only need to cover the search area uniformly over time, not necessarily in every frame). The output images shown below are split to show the original image with the detected boxes drawn (on top), the heatmap (on the bottom right), and the sliding window search and results (on the bottom left). the organization of the windows changes from frame to frame due to the randomness introduced as described above.
 
 #### 2. Show some examples of test images to demonstrate how your pipeline is working.  What did you do to optimize the performance of your classifier?
 
-Ultimately I searched on two scales using YCrCb 3-channel HOG features plus spatially binned color and histograms of color in the feature vector, which provided a nice result.  Here are some example images:
+Ultimately I searched on 3 scales scales using all channels of the HSL input image to form HOG features (structural features) and histograms of color (colour features). The HOG features and colour features were combined to produce the final feature vector, which provided good vehicle tracking performance.
 
-![alt text][image4]
----
+To optimize the performance of my classifier, I introduced a small amount of randomness in window position as described in the previous section. The previous section also explains why this improves the speed of the algorithm. In addition, I limited the sliding window search area to search only areas of the image in which I expected vehicle detections to occur.
+
+Example images:
+
+Overall image:
+
+![summary_image](report_imgs/features_test_img.png)
+
+Sample HOG feature images are shown in the table below.
+
+| HSL image | Features |
+|:---:|:---:|
+|![img_1](report_imgs/hog_sample_1.png)|![img_ft_1](report_imgs/hog_features_1.png)|
+|![img_2](report_imgs/hog_img_2.png)|![img_ft_2](report_imgs/hog_features_2.png)|
 
 ### Video Implementation
 
@@ -88,18 +132,24 @@ Here's a [link to my video result](./project_video_output.mp4)
 
 #### 2. Describe how (and identify where in your code) you implemented some kind of filter for false positives and some method for combining overlapping bounding boxes.
 
-I recorded the positions of positive detections in each frame of the video.  From the positive detections I created a heatmap and then thresholded that map to identify vehicle positions.  I then used `scipy.ndimage.measurements.label()` to identify individual blobs in the heatmap.  I then assumed each blob corresponded to a vehicle.  I constructed bounding boxes to cover the area of each blob detected.  
+I recorded the bounding boxes of vehicle detections from each frame of the video. From these positive detections I created a heatmap and then thresholded that map to produce a binary image representing vehicle detections.  I then used `cv2.findContours` and `cv2.boundingRect` to identify vehicle detections in the heatmap.  The outputs of `boundingRect` were my vehicle detections.  
 
-Here's an example result showing the heatmap from a series of frames of video, the result of `scipy.ndimage.measurements.label()` and the bounding boxes then overlaid on the last frame of video:
+Here's an example result showing the the following information from a series of frames of video:
+- Original image with vehicle detections drawn as blue bounding boxes
+- The heatmap (before thresholding)
+- The results of sliding window search (before false positive elimination)
 
 ### Here are six frames and their corresponding heatmaps:
 
-![alt text][image5]
+Please see 2 sections below - I combined different information together in a single image output.
 
-### Here is the output of `scipy.ndimage.measurements.label()` on the integrated heatmap from all six frames:
-![alt text][image6]
+### Here is the output of `cv2.findContours + cv2.boundingRect` on the integrated heatmap from all six frames:
+
+Please see 1 section below - I combined different information together in a single image output.
 
 ### Here the resulting bounding boxes are drawn onto the last frame in the series:
+
+I show more than 6 images here because you can see the heatmap eliminate a false positive vehicle detection over time. The location of the false positive is the bottom middle of the heatmap.
 
 | Even Numbered Frames | Odd Numbered Frames |
 |:---:|:---:|

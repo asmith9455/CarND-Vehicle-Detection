@@ -17,7 +17,13 @@ def get_hog_features(img, orient, pix_per_cell, cell_per_block, vis=False, featu
                                   cells_per_block=(cell_per_block, cell_per_block), 
                                   transform_sqrt=True, 
                                   visualize=vis, feature_vector=feature_vec)
-        return features, hog_image
+
+        cv2.imshow("features_image", hog_image)
+        cv2.imshow("img", img)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
+
+        return features
     # Otherwise call with one output
     else:      
         features = hog(img, orientations=orient, 
@@ -49,9 +55,10 @@ def extract_features_img(image, cspace='RGB', orient=9,
     if hog_channel == 'ALL':
         hog_features = []
         for channel in range(feature_image.shape[2]):
+            vis = False
             hog_features.append(get_hog_features(feature_image[:,:,channel], 
                                 orient, pix_per_cell, cell_per_block, 
-                                vis=False, feature_vec=True))
+                                vis=vis, feature_vec=True))
         hog_features = np.ravel(hog_features)        
     else:
         hog_features = get_hog_features(feature_image[:,:,hog_channel], orient, 

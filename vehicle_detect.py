@@ -30,8 +30,8 @@ import pickle
 # - the name of the test video to read (also used to generate the output file name)
 
 train_mode = False
-video_mode = True
-# photo_mode = False
+video_mode = False
+photo_mode = True
 
 clf = None
 X_scaler = None
@@ -166,12 +166,92 @@ if train_mode:
 	with open(model_name + "_normalizer", 'wb') as output:
 		pickle.dump(X_scaler, output, pickle.HIGHEST_PROTOCOL)
 
+hmap = HeatMap((720, 1280, 3))
+
+if photo_mode or video_mode:
+	if not(train_mode):
+		with open(model_name, 'rb') as ip_file:
+			clf = pickle.load(ip_file)
+		with open(model_name + "_normalizer", 'rb') as ip_file:
+			X_scaler = pickle.load(ip_file)
+
+def video_image(img):
+
+	# detect objects in the image using all sliding windows.
+
+	bboxes, allboxes = detect_objects(img, clf, X_scaler, windows)
+
+	# bboxes2, allboxes2 = detect_objects_multi_scale(img, clf_tree, X_scaler, min_size=(100,100), max_size=(201,201), step_size=(100,100))
+
+	# form the image with the bounding boxes drawn on it 
+	draw_img = draw_bboxes(img, bboxes, allboxes)
+	
+	# add the detections to the heatmap
+	hmap.add_boxes(bboxes)
+
+	# final detections heatmap threshold (experimentally determined)
+	hmap_thresh = 650
+
+	# generate the binary map of detections
+	bin_map = np.zeros(hmap.shape, dtype=np.uint8)
+	bin_map[hmap.map[:,:,0] > hmap_thresh] = np.array([255,0,0])
+
+	# cv2.imshow("heatmap", hmap.map)
+
+	# cv2.waitKey(100)
+
+	# draw_img = draw_bboxes(img, bboxes2, allboxes2)
+
+	# overlay the binary map of detected objects onto the original image 
+	draw_img = cv2.addWeighted(draw_img, 1.0, bin_map, 0.5, 0.0)
+
+	# find the boxes that represent vehicle detections from the binary map  
+	bin_img_for_contours = bin_map[:,:,0]
+
+	mod_img, contours, hierarchy = cv2.findContours(bin_img_for_contours.copy(), 1, 2)
+
+	draw_img_2 = img.copy()
+
+	# require an area of at least 600 px^2 for the detected box
+
+	area_thresh = 600  #area theshold in pixels squared - to reduce false positives
+
+	# draw the final detections on the output video
+	for c in contours:
+		x, y, w, h = cv2.boundingRect(c)
+
+		if (w * h < area_thresh):
+			continue
+
+		cv2.rectangle(draw_img,(x,y),(x+w,y+h),(0,0,255),2)
+		cv2.rectangle(draw_img_2,(x,y),(x+w,y+h),(0,0,255),2)
+
+	# put the image with vehicle detections on top, the sliding windows and pre-heatmap detections on the bottom left, and the heatmap on the bottom right, then return this image
+
+	draw_img_resize = cv2.resize(draw_img, (0,0), fx=0.5, fy=0.5)
+
+	hmap_resize = cv2.resize((hmap.map * 255 / np.max(hmap.map)).astype(np.uint8), (0,0), fx=0.5, fy=0.5)
+
+	bottom = np.hstack((draw_img_resize, hmap_resize))
+
+	return np.vstack((draw_img_2, bottom))
 
 if video_mode:
 	# in this mode, process as video with the name specified above
 	# if we didn't train the classifier above, read the clf and StandardScaler from disk.
 
+	hmap = HeatMap((720, 1280, 3))
+
 	from moviepy.editor import VideoFileClip
+	
+
+	test_clip = VideoFileClip(video_name + ".mp4")
+	output_vid = test_clip.fl_image(video_image).subclip(0,0.5)
+	output_vid.write_videofile(video_name + "_output.mp4")
+
+if photo_mode:
+
+	files = glob.glob('test_images/*.jpg')
 
 	if not(train_mode):
 		with open(model_name, 'rb') as ip_file:
@@ -179,91 +259,14 @@ if video_mode:
 		with open(model_name + "_normalizer", 'rb') as ip_file:
 			X_scaler = pickle.load(ip_file)
 
-	hmap = HeatMap((720, 1280, 3))
+	for file in files:
 
-	def video_image(img):
+		hmap = HeatMap((720, 1280, 3))
 
-		# detect objects in the image using all sliding windows.
+		draw_img = video_image(mpimg.imread(file))
 
-		bboxes, allboxes = detect_objects(img, clf, X_scaler, windows)
+		cv2.imshow("detections", cv2.cvtColor(draw_img, cv2.COLOR_BGR2RGB))
 
-		# bboxes2, allboxes2 = detect_objects_multi_scale(img, clf_tree, X_scaler, min_size=(100,100), max_size=(201,201), step_size=(100,100))
-
-		# form the image with the bounding boxes drawn on it 
-		draw_img = draw_bboxes(img, bboxes, allboxes)
-		
-		# add the detections to the heatmap
-		hmap.add_boxes(bboxes)
-
-		# final detections heatmap threshold (experimentally determined)
-		hmap_thresh = 650
-
-		# generate the binary map of detections
-		bin_map = np.zeros(hmap.shape, dtype=np.uint8)
-		bin_map[hmap.map[:,:,0] > hmap_thresh] = np.array([255,0,0])
-
-		# cv2.imshow("heatmap", hmap.map)
-
-		# cv2.waitKey(100)
-
-		# draw_img = draw_bboxes(img, bboxes2, allboxes2)
-
-		# overlay the binary map of detected objects onto the original image 
-		draw_img = cv2.addWeighted(draw_img, 1.0, bin_map, 0.5, 0.0)
-
-		# find the boxes that represent vehicle detections from the binary map  
-		bin_img_for_contours = bin_map[:,:,0]
-
-		mod_img, contours, hierarchy = cv2.findContours(bin_img_for_contours.copy(), 1, 2)
-
-		draw_img_2 = img.copy()
-
-		# require an area of at least 600 px^2 for the detected box
-
-		area_thresh = 600  #area theshold in pixels squared - to reduce false positives
-
-		# draw the final detections on the output video
-		for c in contours:
-			x, y, w, h = cv2.boundingRect(c)
-
-			if (w * h < area_thresh):
-				continue
-
-			cv2.rectangle(draw_img,(x,y),(x+w,y+h),(0,0,255),2)
-			cv2.rectangle(draw_img_2,(x,y),(x+w,y+h),(0,0,255),2)
-
-		# put the image with vehicle detections on top, the sliding windows and pre-heatmap detections on the bottom left, and the heatmap on the bottom right, then return this image
-
-		draw_img_resize = cv2.resize(draw_img, (0,0), fx=0.5, fy=0.5)
-
-		hmap_resize = cv2.resize((hmap.map * 255 / np.max(hmap.map)).astype(np.uint8), (0,0), fx=0.5, fy=0.5)
-
-		bottom = np.hstack((draw_img_resize, hmap_resize))
-
-		return np.vstack((draw_img_2, bottom))
-
-	test_clip = VideoFileClip(video_name + ".mp4")
-	output_vid = test_clip.fl_image(video_image)
-	output_vid.write_videofile(video_name + "_output.mp4")
-
-# if photo_mode:
-
-# 	files = glob.glob('test_images/*.jpg')
-
-# 	if not(train_mode):
-# 		with open(model_name, 'rb') as ip_file:
-# 			clf = pickle.load(ip_file)
-# 		with open(model_name + "_normalizer", 'rb') as ip_file:
-# 			X_scaler = pickle.load(ip_file)
-
-# 	for file in files:
-# 		img = mpimg.imread(file)
-
-# 		bboxes, allboxes = detect_objects(img, clf, X_scaler, windows)
-# 		draw_img = draw_bboxes(img, bboxes, allboxes)
-
-# 		cv2.imshow("detections", cv2.cvtColor(draw_img, cv2.COLOR_BGR2RGB))
-
-# 		cv2.waitKey(0)
+		cv2.waitKey(0)
 
 	
