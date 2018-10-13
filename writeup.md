@@ -1,18 +1,4 @@
-- the hardest part is making it run quickly with so many scanning boxes
-
-
-
--start 128s even farther down
-
-
-- tracking performance now good
-- tried to increase threshold in an attempt to get rid of the few false positives that show up
-- hopefully this doesn't eliminate true positives as well
-- if bad - can decrease the amount that gets added to the heatmap for each positive returned by the classifier
-
-
-## Writeup Template
-### You can use this file as a template for your writeup if you want to submit it as a markdown file, but feel free to use some other method and submit a pdf if you prefer.
+## Writeup
 
 ---
 
